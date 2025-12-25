@@ -1,111 +1,60 @@
 # RabbitMQ WebSocket Service
 
-A production-ready Spring Boot service that bridges **RabbitMQ** messages to **WebSocket (STOMP)** clients in real time.
-
-This service allows backend systems to publish messages to RabbitMQ and instantly push them to connected WebSocket clients (browser, Postman, React, etc.).
+A lightweight Spring Boot service that forwards messages from RabbitMQ to connected WebSocket (STOMP) clients in real time. It provides a REST publishing endpoint and a WebSocket/STOMP broker so backend producers can publish to RabbitMQ and clients (browser, Postman, React, etc.) can receive updates instantly.
 
 ---
 
-## ✨ Features
+## Highlights
 
-- RabbitMQ producer & consumer
-- Plain **Text WebSocket** (no SockJS)
-- STOMP protocol support
-- Real-time message delivery
-- Broadcast & user-specific messaging
-- High-performance Jackson configuration
-- Java 21 + Spring Boot 3.x compatible
-- Docker-ready RabbitMQ setup
+- RabbitMQ producer & consumer integration (Spring AMQP)
+- WebSocket with STOMP support (no SockJS)
+- Broadcast and user-specific messaging
+- Optimized Jackson configuration (Blackbird + JSR-310)
+- Java 21, Spring Boot 3.x compatible
+- Docker Compose for local RabbitMQ during development
 
 ---
 
-## 🧱 Architecture
+## Quick start (local)
 
-Client (Postman / React / Browser)
-        |
-        | WebSocket (STOMP)
-        v
-Spring Boot WebSocket Broker
-        |
-        | push
-        v
-RabbitMQ Consumer
-        |
-        | consume
-        v
-RabbitMQ Exchange / Queue
+Prerequisites: Java 21 JDK, Docker & Docker Compose, Maven/Gradle
 
----
-
-## 🛠 Tech Stack
-
-- Java 21
-- Spring Boot 3.x
-- Spring AMQP (RabbitMQ)
-- Spring WebSocket (STOMP)
-- Jackson (Blackbird + JSR310)
-- RabbitMQ (Docker)
-
----
-
-## 🚀 Getting Started
-
-### Start RabbitMQ
+1) Start RabbitMQ for local development:
 
 ```bash
 docker compose up -d
 ```
 
-RabbitMQ Management UI:
-http://localhost:15672
+RabbitMQ management UI: http://localhost:15672
+
+2) Build and run the service:
+
+```bash
+./mvnw clean package
+java -jar target/*.jar
+```
+
+Default app URL: http://localhost:19010
 
 ---
 
-## Application Port
+## Endpoints & WebSocket
 
-http://localhost:19010
-
----
-
-## 🔌 WebSocket Endpoint
-
-ws://localhost:19010/ws/rabbitmq
+- WebSocket (STOMP) endpoint: ws://localhost:19010/ws/rabbitmq
+- Example STOMP subscribe destination: /topic/orders
+- Application prefix used by controllers: /app/*
 
 ---
 
-## STOMP Destinations
+## REST publish API
 
-Subscribe:
-/topic/orders
-
-Application Prefix:
-/app/*
-
----
-
-## 🧪 Postman WebSocket Test
-
-CONNECT:
-CONNECT
-accept-version:1.2
-host:localhost
-
-^@
-
-SUBSCRIBE:
-SUBSCRIBE
-id:sub-1
-destination:/topic/orders
-
-^@
-
----
-
-## REST Publish API
+Publish a message (the service forwards this to RabbitMQ):
 
 POST http://localhost:19010/api/rabbit/publish
 
-Sample Body:
+Sample JSON body:
+
+```json
 {
   "eventType": "ORDER_CREATED",
   "payload": {
@@ -113,15 +62,67 @@ Sample Body:
     "amount": 5000
   }
 }
+```
+
+cURL example:
+
+```bash
+curl -X POST http://localhost:19010/api/rabbit/publish \
+  -H "Content-Type: application/json" \
+  -d '{"eventType":"ORDER_CREATED","payload":{"orderId":"ORD-123","amount":5000}}'
+```
 
 ---
 
-## Production Notes
+## Postman WebSocket test (raw STOMP frames)
 
-- Use Text WebSocket for low latency
-- Add DLQ for RabbitMQ
-- Secure WebSocket with JWT
-- Avoid manual JSON parsing
+CONNECT
+accept-version:1.2
+host:localhost
+
+^@
+
+SUBSCRIBE
+id:sub-1
+destination:/topic/orders
+
+^@
+
+Trigger a publish via the REST API and messages should be delivered to subscribed clients.
+
+---
+
+## Configuration
+
+Check src/main/resources/application.yml (or application.properties) for exact keys. Typical properties to set:
+
+- spring.rabbitmq.host, spring.rabbitmq.port, spring.rabbitmq.username, spring.rabbitmq.password
+- server.port (19010 by default)
+- websocket endpoint/path (e.g. /ws/rabbitmq)
+
+---
+
+## Production notes
+
+- Secure WebSocket endpoints (JWT/OAuth) and validate incoming messages.
+- Use durable queues and persistent messages for critical flows.
+- Add Dead Letter Exchanges/Queues for failed processing.
+- Configure RabbitMQ clustering / high-availability for production.
+- Monitor consumers and message rates; consider backpressure strategies.
+
+---
+
+## Project layout (high level)
+
+- src/main/java — controllers, services, RabbitMQ listener/producer, WebSocket config
+- src/main/resources — application.yml/properties, static files
+- docker-compose.yml — RabbitMQ for local development
+
+---
+
+## Contributing
+
+Contributions are welcome. Please open an issue or PR and follow standard Java + Spring Boot practices.
 
 ---
 
